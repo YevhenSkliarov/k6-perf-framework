@@ -5,7 +5,11 @@
   "main": "index.js",
   "scripts": {
     "typecheck": "tsc",
-    "test:smoke": "k6 run tests/api/smoke.test.ts"
+    "test:smoke": "k6 run -e PROFILE=smoke tests/api/order-pizza.test.ts",
+    "test:load": "K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=reports/load-report.html k6 run -e PROFILE=load -e USERS=10 tests/api/rate-pizza.test.ts",
+    "test:stress": "k6 run -e PROFILE=stress tests/api/order-pizza.test.ts",
+    "test:spike": "k6 run -e PROFILE=spike tests/api/order-pizza.test.ts",
+    "test:soak": "k6 run -e PROFILE=soak tests/api/order-pizza.test.ts"
   },
   "keywords": [],
   "author": "",
