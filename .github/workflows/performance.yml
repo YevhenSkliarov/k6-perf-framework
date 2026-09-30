@@ -1,0 +1,63 @@
+name: Performance tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Load profile
+        type: choice
+        options: [smoke, load, stress, spike]
+        default: load
+
+jobs:
+  k6:
+    runs-on: ubuntu-latest
+
+    services:
+      quickpizza:
+        image: ghcr.io/grafana/quickpizza-local:latest
+        ports:
+          - 3333:3333
+
+    env:
+      BASE_URL: http://localhost:3333
+      PROFILE: ${{ inputs.profile || 'smoke' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+
+      - uses: grafana/setup-k6-action@v1
+
+      - name: Wait for QuickPizza
+        run: |
+          for i in {1..30}; do
+            curl -sf $BASE_URL/ready && exit 0
+            sleep 2
+          done
+          echo "QuickPizza did not start" && exit 1
+
+      - name: Run k6 (${{ env.PROFILE }})
+        run: |
+          mkdir -p reports
+          K6_WEB_DASHBOARD=true \
+          K6_WEB_DASHBOARD_EXPORT=reports/${PROFILE}-report.html \
+          k6 run -e PROFILE=$PROFILE -e BASE_URL=$BASE_URL -e USERS=10 \
+            tests/api/rate-pizza.test.ts
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-reports-${{ env.PROFILE }}
+          path: reports/
